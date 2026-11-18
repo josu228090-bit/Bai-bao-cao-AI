@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tìm kiếm tuần tự — Rada quét mảng</title>
+<style>
+:root{color-scheme:dark;--bg:#07090d;--panel:#10151c;--or:#ff5a1f;--cy:#22e5ff;--li:#a3ff12;--pu:#8b5cf6;--tx:#e6f1f5;--mut:#7d8b99;--ln:rgba(34,229,255,.2);--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;min-height:100vh;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;z-index:-2;background:radial-gradient(600px 300px at 50% -50px,rgba(139,92,246,.16),transparent),linear-gradient(rgba(34,229,255,.045) 1px,transparent 1px) 0 0/32px 32px,linear-gradient(90deg,rgba(34,229,255,.045) 1px,transparent 1px) 0 0/32px 32px}
+body::after{content:"";position:fixed;left:0;right:0;height:120px;z-index:-1;background:linear-gradient(transparent,rgba(34,229,255,.07),transparent);animation:sweep 7s linear infinite}
+@keyframes sweep{from{top:-120px}to{top:100%}}
+main{max-width:460px;margin:0 auto;padding:22px 12px 40px}
+h1{margin:0;font-size:clamp(28px,9vw,40px);line-height:1.05;letter-spacing:.02em;text-align:center;text-shadow:0 0 18px rgba(255,90,31,.55);color:#fff}
+h1 span{color:var(--or)}
+.sub{text-align:center;font:600 12px var(--mono);color:var(--cy);letter-spacing:.06em;margin:8px 0 6px;text-transform:uppercase}
+.desc{text-align:center;color:var(--mut);margin:0 0 16px;font-size:14px}
+.box{background:var(--panel);border:1px solid var(--ln);border-radius:12px;box-shadow:0 0 16px rgba(34,229,255,.07),inset 0 0 0 1px rgba(255,255,255,.02)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px}
+.stat{padding:8px 4px;text-align:center}
+.stat small{display:block;font:600 8.5px var(--mono);color:var(--mut);letter-spacing:.05em}
+.stat b{font:700 19px var(--mono)}
+.s1 b{color:var(--or)}.s2 b{color:var(--pu)}.s3 b{color:var(--cy)}.s4 b{color:var(--li)}
+.arr{position:relative;padding:76px 8px 12px;margin-bottom:12px;overflow:hidden}
+.cells{display:flex;gap:4px}
+.cell{flex:1;min-width:0;text-align:center}
+.mem{height:54px;display:flex;align-items:center;justify-content:center;font:700 var(--fs,20px) var(--mono);border-radius:6px;border:1.5px solid #2b3645;background:linear-gradient(#18212c,#0d1218);position:relative;transition:.25s;color:#d6e4ee}
+.mem::before,.mem::after{content:"";position:absolute;top:6px;bottom:6px;width:2px;background:repeating-linear-gradient(#3a4757 0 3px,transparent 3px 6px);opacity:.7}
+.mem::before{left:-4px}.mem::after{right:-4px}
+.idx{font:11px var(--mono);color:var(--mut);margin-top:5px}
+.cell.scan .mem{border-color:var(--cy);color:var(--cy);box-shadow:0 0 12px rgba(34,229,255,.5);background:linear-gradient(#0f2a33,#0b161c)}
+.cell.seen .mem{border-color:var(--pu);color:#8e82c4;background:linear-gradient(#1a1730,#100e1d)}
+.cell.found .mem{border-color:var(--li);color:#0b1200;background:var(--li);box-shadow:0 0 22px rgba(163,255,18,.75);transform:translateY(-4px)}
+.cell.found .mem::after{content:"";inset:-8px;position:absolute;width:auto;top:-8px;bottom:-8px;left:-8px;right:-8px;border:2px dashed var(--li);border-radius:50%;background:none;animation:spin 3s linear infinite}
+.cell.found .idx{color:var(--li)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.lost .cell .mem{animation:flick .5s 2}
+@keyframes flick{50%{border-color:var(--or);box-shadow:0 0 10px var(--or)}}
+#probe{position:absolute;top:8px;left:0;width:34px;transform:translateX(-50%);transition:left .55s cubic-bezier(.5,0,.2,1);cursor:pointer;z-index:3;--c:var(--cy)}
+.drone{height:22px;border-radius:8px 8px 11px 11px;background:linear-gradient(#2a3646,#141b24);border:1.5px solid var(--c);box-shadow:0 0 10px var(--c);display:flex;align-items:center;justify-content:center;position:relative}
+.drone::before{content:"";position:absolute;top:-8px;left:50%;width:2px;height:8px;background:var(--c);animation:blink 1.2s infinite}
+@keyframes blink{50%{opacity:.2}}
+.eye{width:16px;height:12px;border-radius:50%;background:#05090d;display:flex;align-items:center;justify-content:center;transition:.2s}
+.eye i{width:6px;height:6px;border-radius:50%;background:var(--c);box-shadow:0 0 6px var(--c);transform:translateY(2px);transition:.2s}
+.beam{position:absolute;top:22px;left:50%;width:var(--cw,40px);height:44px;transform:translateX(-50%);clip-path:polygon(38% 0,62% 0,100% 100%,0 100%);background:linear-gradient(rgba(34,229,255,.55),rgba(34,229,255,.06));opacity:.55;transition:opacity .2s,background .3s;overflow:hidden}
+#probe.scan .beam{opacity:1}
+.beam::after{content:"";position:absolute;left:0;right:0;height:3px;background:#fff;opacity:0;top:0}
+#probe.scan .beam::after{animation:ray .45s ease-in-out infinite alternate;opacity:.8}
+@keyframes ray{to{top:90%}}
+#probe.found{--c:var(--li)}
+#probe.found .beam{background:linear-gradient(rgba(163,255,18,.7),rgba(163,255,18,.08));opacity:1}
+#probe.found .eye{height:3px;border-radius:2px;background:var(--li)}
+#probe.found .eye i{opacity:0}
+#probe.lost{--c:var(--or);animation:shake .6s 2}
+#probe.lost .beam{background:linear-gradient(rgba(255,90,31,.5),rgba(255,90,31,.05));opacity:.8}
+#probe.lost .eye i{transform:translateY(-1px) scale(.6)}
+@keyframes shake{25%{translate:-5px 0}75%{translate:5px 0}}
+#bub{position:absolute;top:2px;left:0;z-index:4;background:#fff;color:#07090d;font:600 11px var(--mono);padding:3px 8px;border-radius:8px;white-space:nowrap;opacity:0;pointer-events:none;transform:translate(-50%,-4px);transition:opacity .2s}
+#bub.on{opacity:1}
+.mini{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+.mini div{padding:7px 4px;text-align:center}
+.mini small{display:block;font:600 9px var(--mono);color:var(--mut);letter-spacing:.05em}
+.mini b{font:700 22px var(--mono);color:var(--cy)}
+.mini div:nth-child(2) b{color:var(--li)}.mini div:nth-child(3) b{color:var(--or)}
+#cap{min-height:46px;padding:10px 12px;margin-bottom:12px;border-left:3px solid var(--or);color:#f2dcd2;font-size:14px}
+.ed{margin-bottom:12px;overflow:hidden}
+.ed .bar{display:flex;align-items:center;gap:6px;padding:7px 10px;background:#0b0f15;border-bottom:1px solid var(--ln);font:12px var(--mono);color:var(--mut)}
+.ed .bar i{width:9px;height:9px;border-radius:50%;background:#ff5f56}.ed .bar i:nth-child(2){background:#ffbd2e}.ed .bar i:nth-child(3){background:#27c93f;margin-right:6px}
+.code{overflow-x:auto;padding:6px 0;font:13px/1.9 var(--mono)}
+.ln{display:flex;min-width:max-content;padding-right:12px;border-left:3px solid transparent}
+.ln.on{background:rgba(255,90,31,.14);border-left-color:var(--or)}
+.ln .n{width:34px;text-align:right;padding-right:12px;color:#4a5667;flex:none}
+.ln .c{white-space:pre;color:#cdd9e3}
+.chip{margin-left:14px;font:700 11px var(--mono);padding:0 8px;border-radius:9px;align-self:center;line-height:18px;display:none}
+.ln.on .chip{display:inline-block;background:#08242b;color:var(--cy);border:1px solid var(--cy)}
+.chip.no{background:#2b1409!important;color:var(--or)!important;border-color:var(--or)!important}
+.chip.ok{background:#17270a!important;color:var(--li)!important;border-color:var(--li)!important}
+.k{color:var(--or)}.t{color:var(--pu)}.f{color:var(--cy)}.nm{color:var(--li)}.op{color:#ff8ab3}
+.st{display:flex;justify-content:space-between;padding:5px 12px;background:#0b0f15;border-top:1px solid var(--ln);font:11px var(--mono);color:var(--mut)}
+.in{padding:12px;margin-bottom:12px}
+.in label{display:block;font:600 11px var(--mono);color:var(--mut);letter-spacing:.05em;margin:0 0 4px}
+input{width:100%;background:#080b10;border:1px solid #2b3645;color:var(--tx);border-radius:8px;padding:10px;font:16px var(--mono);margin-bottom:10px}
+.row{display:flex;gap:8px}
+.row>div{flex:1}
+button{font:700 14px var(--mono);color:var(--tx);background:#161e29;border:1px solid #2f3d4e;border-radius:9px;padding:11px 8px;cursor:pointer;flex:1;transition:.15s}
+button:hover:not(:disabled){border-color:var(--cy);color:var(--cy)}
+button:disabled{opacity:.35;cursor:not-allowed}
+button.pri{background:var(--or);border-color:var(--or);color:#140600}
+button.pri:hover:not(:disabled){color:#140600;box-shadow:0 0 14px var(--or)}
+button[aria-pressed=true]{border-color:var(--li);color:var(--li)}
+:is(button,input):focus-visible{outline:2px solid var(--li);outline-offset:2px;box-shadow:0 0 12px var(--li)}
+#err{color:#ff8a8a;font:13px var(--mono);margin:-2px 0 10px;min-height:0}
+.ctl{display:flex;gap:8px;margin-bottom:8px}
+.ext{display:flex;gap:6px;margin-bottom:14px;align-items:center}
+.ext span{font:600 11px var(--mono);color:var(--mut);margin-right:2px}
+.ext button{padding:8px 4px;font-size:12px}
+.res{display:none;gap:8px;flex-direction:column}
+.res.on{display:flex}
+.res .box{padding:12px 14px}
+.res h3{margin:0 0 4px;font:700 17px var(--mono);white-space:nowrap}
+.res .r1{border-color:rgba(163,255,18,.45)}.res .r1 h3{color:var(--li)}
+.res .r1.bad{border-color:rgba(255,90,31,.5)}.res .r1.bad h3{color:var(--or)}
+.res .r2 h3{color:var(--pu)}
+.res p{margin:0;font-size:13px;color:#b9c6d2}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+<h1>TÌM KIẾM <span>TUẦN TỰ</span></h1>
+<div class="sub">xét lần lượt từng phần tử cho đến khi gặp</div>
+<p class="desc">Rada, chiếc đèn pha tí hon, rọi từng ô nhớ từ trái sang phải. Gặp giá trị cần tìm thì dừng, hết mảng mà chưa gặp thì báo không có.</p>
+
+<div class="stats">
+<div class="box stat s1"><small>THỜI GIAN</small><b>O(n)</b></div>
+<div class="box stat s2"><small>BỘ NHỚ</small><b>O(1)</b></div>
+<div class="box stat s3"><small>SO SÁNH</small><b id="sCmp">0</b></div>
+<div class="box stat s4"><small>LƯỢT</small><b id="sLt">0</b></div>
+</div>
+
+<div class="box arr" id="arr">
+<div id="probe" title="Bấm vào Rada thử xem"><div class="drone"><div class="eye"><i></i></div></div><div class="beam"></div></div>
+<div id="bub"></div>
+<div class="cells" id="cells"></div>
+</div>
+
+<div class="mini">
+<div class="box"><small>i</small><b id="bi">–</b></div>
+<div class="box"><small>a[i]</small><b id="ba">–</b></div>
+<div class="box"><small>x CẦN TÌM</small><b id="bx">–</b></div>
+</div>
+<div class="box" id="cap" aria-live="polite"></div>
+
+<div class="box ed">
+<div class="bar"><i></i><i></i><i></i>linear_search.c</div>
+<div class="code" id="code"></div>
+<div class="st"><span id="stN">n = 8&nbsp;&nbsp;x = 42</span><span id="stI">i = –</span></div>
+</div>
+
+<div class="box in">
+<label for="inA">MẢNG (tối đa 15 số, mỗi số từ 0 đến 99)</label>
+<input id="inA" inputmode="numeric" autocomplete="off" value="27, 8, 55, 14, 42, 3, 19, 36">
+<label for="inX">X CẦN TÌM</label>
+<input id="inX" inputmode="numeric" autocomplete="off" value="42">
+<div id="err" role="alert"></div>
+<div class="row"><button class="pri" id="bApply">Áp dụng</button><button id="bRand">🎲 Ngẫu nhiên</button></div>
+</div>
+
+<div class="ctl">
+<button id="bBack">◀ Lùi</button>
+<button class="pri" id="bPlay">▶ Chạy</button>
+<button id="bNext">Tiếp ▶</button>
+</div>
+<div class="ext"><span>TỐC ĐỘ</span>
+<button data-sp="0.5" aria-pressed="false">0,5×</button><button data-sp="1" aria-pressed="true">1×</button><button data-sp="2" aria-pressed="false">2×</button></div>
+
+<div class="res" id="res">
+<div class="box r1" id="r1"><h3 id="r1h"></h3><p id="r1p"></p></div>
+<div class="box r2"><h3>LUÔN O(n)</h3><p id="r2p"></p></div>
+</div>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const CODE=["int linear_search(int a[], int n, int x) {","    for (int i = 0; i < n; i++) {","        if (a[i] == x)","            return i;","    }","    return -1;","}"];
+const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const hl=s=>esc(s).replace(/(&lt;|&gt;|&amp;)|\b(int|for|if|return)\b|\b(linear_search)\b|\b(\d+)\b/g,(m,a,b,c,d)=>a?`<span class="op">${m}</span>`:b?`<span class="${b=="int"?"t":"k"}">${m}</span>`:c?`<span class="f">${m}</span>`:`<span class="nm">${m}</span>`);
+$("#code").innerHTML=CODE.map((l,i)=>`<div class="ln" id="l${i}"><span class="n">${i+1}</span><span class="c">${hl(l)}</span><span class="chip" id="c${i}"></span></div>`).join("");
+
+let A=[],X=0,steps=[],idx=0,timer=null,dirty=false,speed=1,dbt;
+
+function parse(){
+  const raw=$("#inA").value.trim(),xr=$("#inX").value.trim();
+  if(!raw)return"Ô mảng đang trống. Hãy nhập ít nhất 1 số, ví dụ 27, 8, 55.";
+  const parts=raw.split(/[,;\s]+/).filter(Boolean),arr=[];
+  for(const p of parts){
+    if(!/^\d+$/.test(p))return/^-\d+$/.test(p)?`Số ${p} không hợp lệ: chỉ nhận từ 0 đến 99.`:`“${p}” không phải số nguyên. Hãy tách các số bằng dấu phẩy, dấu cách hoặc dấu chấm phẩy.`;
+    const v=+p;if(v>99)return`Số ${p} vượt quá 99 (chỉ nhận từ 0 đến 99).`;arr.push(v);
+  }
+  if(arr.length>15)return`Mảng có ${arr.length} số, nhiều hơn mức tối đa 15.`;
+  if(!xr)return"Ô x đang trống. Hãy nhập số cần tìm.";
+  if(!/^\d+$/.test(xr))return/^-\d+$/.test(xr)?`x = ${xr} không hợp lệ: chỉ nhận từ 0 đến 99.`:`x phải là một số nguyên từ 0 đến 99, bạn nhập “${xr}”.`;
+  if(+xr>99)return`x = ${xr} vượt quá 99 (chỉ nhận từ 0 đến 99).`;
+  A=arr;X=+xr;return"";
+}
+function build(){
+  steps=[{k:"init",cmp:0,lt:0}];let c=0,l=0;
+  for(let i=0;i<A.length;i++){
+    l++;steps.push({k:"for",i,cmp:c,lt:l});c++;
+    const hit=A[i]===X;steps.push({k:"if",i,cmp:c,lt:l,hit});
+    if(hit){steps.push({k:"ret",i,cmp:c,lt:l,found:true});return}
+  }
+  steps.push({k:"end",i:A.length,cmp:c,lt:l});
+  steps.push({k:"ret",i:A.length,cmp:c,lt:l,found:false});
+}
+function stop(){clearInterval(timer);timer=null;$("#bPlay").textContent="▶ Chạy"}
+function apply(){
+  clearTimeout(dbt);stop();
+  const e=parse();$("#err").textContent=e;
+  if(e){dirty=true;ctrl();return false}
+  dirty=false;idx=0;build();layout();render();return true;
+}
+function layout(){
+  const n=A.length;
+  $("#cells").innerHTML=A.map((v,i)=>`<div class="cell"><div class="mem">${v}</div><div class="idx">${i}</div></div>`).join("");
+  $("#cells").style.setProperty("--fs",(n<=8?20:n<=10?17:n<=12?14:11)+"px");
+  $("#arr").style.setProperty("--fs",(n<=8?20:n<=10?17:n<=12?14:11)+"px");
+  document.querySelectorAll(".mem").forEach(m=>m.style.fontSize=(n<=8?20:n<=10?17:n<=12?14:11)+"px");
+  const w=$(".cell").offsetWidth;$("#probe").style.setProperty("--cw",(w+8)+"px");
+}
+function ctrl(){
+  const last=idx>=steps.length-1;
+  $("#bBack").disabled=idx===0&&!dirty;
+  $("#bNext").disabled=last&&!dirty;
+}
+function render(){
+  const s=steps[idx],n=A.length,i=s.k==="init"?null:s.i;
+  $("#sCmp").textContent=s.cmp;$("#sLt").textContent=s.lt;
+  const cells=document.querySelectorAll(".cell");
+  cells.forEach((c,k)=>{
+    c.className="cell";
+    if(s.k==="ret"&&s.found&&k===i)c.classList.add("found");
+    else if(i!==null&&k<i)c.classList.add("seen");
+    else if(i!==null&&k===i&&(s.k==="for"||s.k==="if"))c.classList.add("scan");
+  });
+  const lost=s.k==="ret"&&!s.found;
+  $("#arr").classList.toggle("lost",lost);
+  const p=$("#probe"),pos=i===null?0:Math.min(i,n-1),cc=cells[pos];
+  p.style.left=(cc.offsetLeft+cc.offsetWidth/2)+"px";
+  p.className=(s.k==="if"?"scan ":"")+(s.k==="ret"&&s.found?"found ":"")+(lost?"lost":"");
+  $("#bi").textContent=i===null?"–":i;
+  $("#ba").textContent=i!==null&&i<n?A[i]:"–";
+  $("#bx").textContent=X;
+  $("#stN").innerHTML=`n = ${n}&nbsp;&nbsp;x = ${X}`;
+  $("#stI").textContent="i = "+(i===null?"–":i);
+  document.querySelectorAll(".ln").forEach(l=>l.classList.remove("on"));
+  document.querySelectorAll(".chip").forEach(c=>{c.textContent="";c.className="chip"});
+  let line=-1,chip="",cls="",cap="";
+  if(s.k==="init"){cap=`Rada khởi động. Cần tìm ${X} trong ${n} ô. Bấm Tiếp hoặc Chạy để bắt đầu quét.`}
+  else if(s.k==="for"){line=1;chip=`${i} < ${n} ? đúng`;cap=`Lượt ${i+1}: Rada xoay đèn sang a[${i}].`}
+  else if(s.k==="if"){line=2;chip=`${A[i]} == ${X} ? ${s.hit?"đúng":"sai"}`;cls=s.hit?"ok":"no";
+    cap=s.hit?`a[${i}] = ${A[i]} bằng ${X}. Khoá mục tiêu!`:`a[${i}] = ${A[i]} khác ${X}, xét tiếp.`}
+  else if(s.k==="end"){line=1;chip=`${n} < ${n} ? sai`;cls="no";cap=`i = ${n} không còn nhỏ hơn n. Hết mảng, đèn pha đã rọi qua mọi ô.`}
+  else if(s.found){line=3;chip=`return ${i}`;cls="ok";cap=`Trả về ${i}: ${X} nằm ở a[${i}]. Rada dừng ngay, không rọi thêm ô nào.`}
+  else{line=5;chip="return -1";cls="no";cap=`Quét sạch ${n} ô mà không thấy ${X}. Rada lắc đầu, trả về -1.`}
+  if(line>=0){$("#l"+line).classList.add("on");const c=$("#c"+line);c.textContent=chip;c.className="chip "+cls;
+    $("#l"+line).scrollIntoView({block:"nearest",inline:"nearest"})}
+  $("#cap").textContent=cap;
+  const res=$("#res"),done=s.k==="ret";res.classList.toggle("on",done);
+  if(done){
+    $("#r1").classList.toggle("bad",!s.found);
+    $("#r1h").textContent=`${s.cmp} SO SÁNH, ${s.lt} LƯỢT`;
+    $("#r1p").textContent=s.found?`Tìm thấy ${X} tại vị trí ${s.i} (lần xuất hiện đầu tiên).`:`không có ${X}, trả về -1`;
+    $("#r2p").textContent=`Tốt nhất: 1 lần so sánh (x ở a[0]). Xấu nhất: ${n} lần so sánh (x ở cuối mảng hoặc không có). Mảng này: ${n} phần tử.`;
+  }
+  ctrl();
+}
+function ensure(){return dirty?apply():true}
+function next(){if(!ensure())return false;if(idx<steps.length-1){idx++;render();return true}return false}
+$("#bNext").onclick=()=>{stop();next()};
+$("#bBack").onclick=()=>{stop();if(!ensure())return;if(idx>0){idx--;render()}};
+$("#bPlay").onclick=()=>{
+  if(timer){stop();return}
+  if(!ensure())return;
+  if(idx>=steps.length-1){idx=0;render()}
+  $("#bPlay").textContent="❚❚ Dừng";
+  const tick=()=>{if(!next())stop()};
+  timer=setInterval(tick,1000/speed);
+};
+$("#bApply").onclick=apply;
+["#inA","#inX"].forEach(id=>{
+  $(id).addEventListener("input",()=>{dirty=true;stop();ctrl();clearTimeout(dbt);dbt=setTimeout(apply,500)});
+  $(id).addEventListener("keydown",e=>{if(e.key==="Enter")apply()});
+});
+document.querySelectorAll("[data-sp]").forEach(b=>b.onclick=()=>{
+  speed=+b.dataset.sp;document.querySelectorAll("[data-sp]").forEach(o=>o.setAttribute("aria-pressed",o===b));
+  if(timer){clearInterval(timer);timer=setInterval(()=>{if(!next())stop()},1000/speed)}
+});
+$("#bRand").onclick=()=>{
+  const n=6+Math.floor(Math.random()*7),a=Array.from({length:n},()=>Math.floor(Math.random()*100));
+  const x=Math.random()<.7?a[Math.floor(Math.random()*n)]:Math.floor(Math.random()*100);
+  $("#inA").value=a.join(", ");$("#inX").value=x;apply();
+};
+/* Chi tiết bất ngờ: bấm vào Rada */
+const quips=["Bíp! Đừng chọc, tôi đang làm việc.","Tôi chỉ biết đi từ trái sang phải thôi!","Mảng chưa sắp xếp? Tôi vẫn quét được hết.","Ê, nhột đấy! Bíp bíp.","Tôi không nhảy cóc như tìm nhị phân đâu."];
+let qi=0,bt;
+$("#probe").onclick=()=>{
+  const b=$("#bub");b.textContent=quips[qi++%quips.length];
+  b.style.left=Math.min(Math.max($("#probe").offsetLeft,70),$("#arr").clientWidth-70)+"px";
+  b.classList.add("on");clearTimeout(bt);bt=setTimeout(()=>b.classList.remove("on"),2200);
+  try{const ac=new (window.AudioContext||window.webkitAudioContext)(),o=ac.createOscillator(),g=ac.createGain();
+    o.type="square";o.frequency.setValueAtTime(880,ac.currentTime);o.frequency.setValueAtTime(1320,ac.currentTime+.08);
+    g.gain.setValueAtTime(.06,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+.2);
+    o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+.2)}catch(e){}
+};
+window.addEventListener("resize",()=>{if(A.length){layout();render()}});
+apply();
+</script>
+</body>
+</html>

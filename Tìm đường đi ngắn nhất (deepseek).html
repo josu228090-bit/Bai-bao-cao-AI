@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Dijkstra · Mô phỏng từng bước</title>
+<style>
+  * {
+    margin: 0; padding: 0; box-sizing: border-box;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: #0b0a1a;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+  }
+
+  .app {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    max-width: 1900px;
+    background: #12101f;
+    border: 1px solid #3d2a6b;
+    border-radius: 16px;
+    box-shadow: 0 0 28px #6b3fa0aa, 0 0 12px #b47aff55;
+    padding: 8px 10px;
+    gap: 6px;
+    overflow: hidden;
+  }
+
+  /* Hàng tiêu đề */
+  .header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 7%;
+    min-height: 40px;
+    flex-shrink: 0;
+    gap: 8px;
+  }
+  .title {
+    font-size: clamp(16px, 2.4vh, 26px);
+    font-weight: 800;
+    letter-spacing: 3px;
+    background: linear-gradient(135deg, #c084fc, #a855f7, #7e22ce);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 14px #a855f7cc;
+    white-space: nowrap;
+  }
+  .counters {
+    display: flex; gap: 8px;
+    font-size: clamp(11px, 1.5vh, 15px);
+    font-weight: 600;
+    flex-wrap: nowrap;
+  }
+  .counter-item {
+    background: #1e1a2e;
+    padding: 4px 10px;
+    border-radius: 30px;
+    border: 1px solid #3e2d66;
+    color: #d8caff;
+    display: flex; align-items: center; gap: 6px;
+    white-space: nowrap;
+  }
+  .counter-value {
+    color: #c084fc;
+    font-weight: 700;
+    font-size: clamp(12px, 1.7vh, 17px);
+    min-width: 20px; text-align: center;
+  }
+
+  /* Nội dung chính */
+  .main-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    gap: 6px;
+  }
+
+  /* Màn ngang thấp hoặc rộng: chia 2 cột */
+  @media (min-aspect-ratio: 6/5), (min-width: 900px) {
+    .main-content { flex-direction: row; }
+    .graph-panel { flex: 3; min-width: 0; }
+    .code-panel { flex: 2; min-width: 0; }
+  }
+
+  .graph-panel {
+    flex: 1 1 38%;
+    min-height: 0;
+    display: flex; flex-direction: column;
+    background: #0d0b18;
+    border-radius: 14px;
+    border: 1px solid #2e2350;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .code-panel {
+    flex: 1 1 38%;
+    min-height: 0;
+    display: flex; flex-direction: column;
+    background: #0d0b18;
+    border-radius: 14px;
+    border: 1px solid #2e2350;
+    overflow: hidden;
+  }
+
+  .graph-canvas-wrapper {
+    flex: 1;
+    position: relative;
+    background: #0f0d1c;
+    overflow: hidden;
+    min-height: 0;
+    touch-action: none;
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  /* Khung code */
+  .code-header {
+    display: flex; align-items: center;
+    padding: 4px 10px;
+    background: #18142a;
+    border-bottom: 1px solid #2e2350;
+    font-size: clamp(11px, 1.5vh, 14px);
+    color: #b9a5e6; font-weight: 600; gap: 8px;
+    flex-shrink: 0;
+  }
+  .code-header .filename { color: #a78bfa; }
+
+  .code-lines {
+    flex: 1;
+    overflow: hidden;
+    padding: 2px 0;
+    font-size: clamp(11px, 1.75vh, 15px);
+    line-height: 1.45;
+    font-family: 'Fira Code', 'Courier New', monospace;
+    background: #0e0c1a;
+    min-height: 0;
+  }
+
+  .code-line {
+    display: flex; align-items: flex-start;
+    padding: 0 0 0 4px;
+    white-space: pre;
+    position: relative;
+    min-height: 1.45em;
+    transition: background 0.1s;
+  }
+  .code-line.active {
+    background: #2e1f5e;
+    box-shadow: inset 4px 0 0 #b47aff, 0 0 12px #7c3aed55;
+  }
+  .line-number {
+    display: inline-block; width: 26px; text-align: right;
+    padding-right: 8px; color: #5a4b7a;
+    font-size: 0.85em; flex-shrink: 0;
+  }
+  .line-code { flex: 1; color: #d4c6ff; }
+
+  .tok-keyword { color: #f472b6; font-weight: 600; }
+  .tok-type    { color: #a78bfa; }
+  .tok-func    { color: #60a5fa; }
+  .tok-comment { color: #6b7280; font-style: italic; }
+  .tok-number  { color: #fbbf24; }
+
+  .code-footer {
+    display: flex; align-items: center; justify-content: space-around;
+    padding: 4px 8px;
+    background: #18142a;
+    border-top: 1px solid #2e2350;
+    font-size: clamp(11px, 1.6vh, 15px);
+    font-weight: 600; color: #c4b5fd;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
+    gap: 4px;
+    flex-wrap: nowrap;
+  }
+  .code-footer .val {
+    color: #f0e6ff;
+    background: #2a1f4a;
+    padding: 1px 8px;
+    border-radius: 20px;
+    border: 1px solid #5b3d9e;
+    min-width: 32px; text-align: center;
+    display: inline-block;
+  }
+
+  /* Chú thích bước */
+  .step-note {
+    height: 6%;
+    min-height: 32px;
+    display: flex; align-items: center;
+    padding: 0 12px;
+    background: #1a1530;
+    border-radius: 30px;
+    border: 1px solid #3e2d66;
+    font-size: clamp(11px, 1.6vh, 14px);
+    font-weight: 500; color: #d8caff;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    flex-shrink: 0;
+    box-shadow: inset 0 0 10px #2a1e4a;
+  }
+
+  /* Thanh điều khiển */
+  .controls {
+    display: flex; align-items: center;
+    gap: 5px;
+    height: 9%;
+    min-height: 46px;
+    flex-shrink: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+  .controls::-webkit-scrollbar { display: none; }
+
+  .btn {
+    background: #1f1a33;
+    border: 1px solid #4b3580;
+    color: #d8caff;
+    padding: 0 10px;
+    height: 44px;
+    border-radius: 30px;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    gap: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    box-shadow: 0 0 6px #3d2a6b88;
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+  .btn:hover { background: #2d2350; border-color: #a855f7; box-shadow: 0 0 12px #a855f7aa; }
+  .btn:active { transform: scale(0.96); }
+  .btn-primary { background: #4c1d95; border-color: #a855f7; box-shadow: 0 0 12px #a855f7cc; }
+
+  .select-sample {
+    background: #1f1a33;
+    border: 1px solid #4b3580;
+    color: #d8caff;
+    height: 44px;
+    border-radius: 30px;
+    padding: 0 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer; outline: none;
+    box-shadow: 0 0 6px #3d2a6b88;
+    flex: 0 0 auto;
+  }
+
+  .slider-wrap {
+    display: flex; align-items: center; gap: 4px;
+    background: #1f1a33;
+    border: 1px solid #4b3580;
+    border-radius: 30px;
+    padding: 0 8px;
+    height: 44px;
+    color: #b9a5e6;
+    font-size: 13px;
+    flex: 1 1 100px;
+    min-width: 80px;
+  }
+  input[type="range"] { width: 100%; accent-color: #a855f7; background: transparent; }
+
+  /* Panel chỉnh sửa */
+  .edit-overlay {
+    position: absolute;
+    inset: 0;
+    background: #0b0a1aee;
+    z-index: 300;
+    display: none;
+    padding: 10px;
+    overflow: hidden;
+    align-items: center;
+    justify-content: center;
+  }
+  .edit-overlay.open { display: flex; }
+  .edit-dialog {
+    background: #15122a;
+    border: 1px solid #a855f7;
+    border-radius: 16px;
+    box-shadow: 0 0 30px #a855f7aa;
+    width: 100%;
+    max-width: 560px;
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .edit-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid #2e2350;
+    font-size: 16px; font-weight: 700; color: #e0d5ff;
+  }
+  .edit-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 14px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .edit-footer {
+    display: flex; justify-content: flex-end; gap: 8px;
+    padding: 10px 14px;
+    border-top: 1px solid #2e2350;
+  }
+
+  .edit-row {
+    display: flex; align-items: center; gap: 8px;
+    flex-wrap: wrap;
+    padding: 6px 8px;
+    background: #1c1832;
+    border-radius: 10px;
+    border: 1px solid #2e2350;
+  }
+  .edit-row .label {
+    font-size: 14px; font-weight: 600;
+    color: #d8caff; min-width: 60px;
+  }
+  .edit-row select,
+  .edit-row input[type="number"] {
+    background: #0f0d1c;
+    border: 1px solid #5b3d9e;
+    color: #f0e6ff;
+    border-radius: 20px;
+    padding: 6px 10px;
+    font-size: 15px;
+    outline: none;
+    height: 36px;
+  }
+  .edit-row input[type="number"] { width: 90px; text-align: center; }
+  .edit-row .btn-sm {
+    background: #2d2350;
+    border: 1px solid #5b3d9e;
+    color: #d8caff;
+    border-radius: 20px;
+    padding: 0 12px;
+    height: 36px;
+    font-size: 14px; font-weight: 600;
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 40px;
+  }
+  .edit-row .btn-sm:hover { background: #4c1d95; }
+  .edit-row .btn-del {
+    background: #7f1d1d;
+    border-color: #ef4444;
+    color: #fecaca;
+  }
+  .edit-row .btn-del:hover { background: #991b1b; }
+
+  .edit-section-title {
+    font-size: 13px; font-weight: 700; color: #a78bfa;
+    text-transform: uppercase; letter-spacing: 1px;
+    margin-top: 4px;
+  }
+
+  .big-btn {
+    background: #4c1d95;
+    border: 1px solid #a855f7;
+    color: #fff;
+    border-radius: 30px;
+    padding: 0 22px;
+    height: 44px;
+    font-size: 15px; font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 0 12px #a855f7cc;
+  }
+  .big-btn:hover { background: #6d28d9; }
+  .big-btn.secondary {
+    background: #1f1a33; border-color: #4b3580;
+    color: #d8caff; box-shadow: none;
+  }
+
+  .hint {
+    font-size: 12px;
+    color: #8b7bb5;
+    line-height: 1.4;
+  }
+
+  /* Toast */
+  .toast {
+    position: absolute;
+    top: 10px; left: 50%;
+    transform: translateX(-50%);
+    background: #2d1b4e;
+    border: 1px solid #a855f7;
+    color: #f0e6ff;
+    padding: 8px 18px;
+    border-radius: 30px;
+    font-size: 13px; font-weight: 600;
+    box-shadow: 0 0 18px #a855f7cc;
+    z-index: 400;
+    pointer-events: none;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .toast.show { opacity: 1; }
+
+  /* Nút mở chỉnh sửa */
+  .btn-edit {
+    background: #1f1a33;
+    border: 1px solid #4b3580;
+    color: #d8caff;
+    height: 44px; min-width: 44px;
+    border-radius: 30px;
+    font-size: 14px; font-weight: 600;
+    padding: 0 12px;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 4px;
+    box-shadow: 0 0 6px #3d2a6b88;
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+  .btn-edit:hover { background: #2d2350; border-color: #a855f7; }
+
+  /* Màn hình nhỏ dọc */
+  @media (max-width: 500px) {
+    .header-row { height: auto; flex-wrap: wrap; gap: 4px; }
+    .counters { font-size: 11px; }
+    .counter-item { padding: 3px 8px; }
+    .title { letter-spacing: 2px; }
+    .controls { gap: 4px; }
+    .btn { padding: 0 8px; }
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="header-row">
+    <div class="title">DIJKSTRA</div>
+    <div class="counters">
+      <div class="counter-item">Cạnh xét <span class="counter-value" id="edgeCount">0</span></div>
+      <div class="counter-item">Đỉnh chốt <span class="counter-value" id="nodeCount">0</span></div>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div class="graph-panel">
+      <div class="graph-canvas-wrapper" id="graphWrapper">
+        <canvas id="graphCanvas"></canvas>
+      </div>
+    </div>
+
+    <div class="code-panel">
+      <div class="code-header">
+        <span>📄</span>
+        <span class="filename">dijkstra.c</span>
+      </div>
+      <div class="code-lines" id="codeLines"></div>
+      <div class="code-footer">
+        <span>u = <span class="val" id="valU">?</span></span>
+        <span>v = <span class="val" id="valV">?</span></span>
+        <span>dist[v] = <span class="val" id="valDist">?</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="step-note" id="stepNote">Sẵn sàng. Nhấn Chạy hoặc Bước tiếp.</div>
+
+  <div class="controls">
+    <button class="btn btn-primary" id="btnRun">▶ Chạy</button>
+    <button class="btn" id="btnStep">⏭ Bước</button>
+    <button class="btn" id="btnPrev">⏮ Trước</button>
+    <button class="btn" id="btnReset">↺ Đặt lại</button>
+    <button class="btn-edit" id="btnEdit">✎ Chỉnh sửa</button>
+    <select class="select-sample" id="sampleSelect">
+      <option value="2">Mẫu 2</option>
+      <option value="3">Mẫu 3</option>
+      <option value="4">Mẫu 4</option>
+      <option value="5">Mẫu 5</option>
+      <option value="6">Mẫu 6</option>
+      <option value="7">Mẫu 7</option>
+      <option value="8">Mẫu 8</option>
+      <option value="9">Mẫu 9</option>
+      <option value="10">Mẫu 10</option>
+    </select>
+    <div class="slider-wrap">
+      <span>🐢</span>
+      <input type="range" id="speedSlider" min="0.2" max="3" step="0.1" value="1">
+      <span>🐇</span>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay chỉnh sửa -->
+<div class="edit-overlay" id="editOverlay">
+  <div class="edit-dialog">
+    <div class="edit-header">
+      <span>✎ Chỉnh sửa đồ thị</span>
+      <button class="btn-sm" id="editCloseBtn" style="background:#7f1d1d;border-color:#ef4444;color:#fecaca;">Đóng</button>
+    </div>
+    <div class="edit-body" id="editBody">
+      <div class="hint">Nhấn vào đỉnh trên đồ thị để chọn ĐẦU/ĐÍCH. Thêm đỉnh bằng cách bấm vào chỗ trống. Nối cạnh bằng cách giữ Shift và kéo.</div>
+
+      <div class="edit-section-title">Điểm đầu &amp; Điểm đích</div>
+      <div class="edit-row">
+        <span class="label">Điểm ĐẦU</span>
+        <select id="selStart"></select>
+      </div>
+      <div class="edit-row">
+        <span class="label">Điểm ĐÍCH</span>
+        <select id="selEnd"></select>
+      </div>
+
+      <div class="edit-section-title">Đỉnh</div>
+      <div id="vertexList"></div>
+
+      <div class="edit-section-title">Cạnh</div>
+      <div id="edgeList"></div>
+    </div>
+    <div class="edit-footer">
+      <button class="big-btn secondary" id="editDoneBtn">Xong</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================== BIẾN TOÀN CỤC ================== */
+const canvas = document.getElementById('graphCanvas');
+const ctx = canvas.getContext('2d');
+const wrapper = document.getElementById('graphWrapper');
+const app = document.getElementById('app');
+
+let vertices = [];   // {id,label,x,y}
+let edges = [];      // {u,v,weight}
+let startNode = 0;
+let endNode = 1;
+
+let steps = [];
+let currentStepIndex = -1;
+let isPlaying = false;
+let playInterval = null;
+let speed = 1;
+
+let draggingVertex = null;
+let dragStartX = 0, dragStartY = 0;
+let dragMoved = false;
+let connectingFrom = null;
+let pointerDownVertex = null;
+
+const COLORS = {
+  bg: '#0f0d1c',
+  vertexUnvisited: '#4b3d6e',
+  vertexVisited: '#2563eb',
+  vertexCurrent: '#a855f7',
+  vertexUpdated: '#fbbf24',
+  vertexPath: '#34d399',
+  vertexStart: '#f97316',
+  vertexEnd: '#ef4444',
+  edgeNormal: '#3d2f5e',
+  edgeActive: '#a855f7',
+  edgeChosen: '#2563eb',
+  edgePath: '#34d399',
+  labelDist: '#c084fc'
+};
+
+/* ================== KHUNG CODE C CHUẨN ==================
+   Code C thuần - không C++, không auto, không true.
+   18 dòng. Mỗi bước map tới 1 dòng.
+*/
+const CODE_LINES = [
+  'void dijkstra(int s, int n) {',
+  '  int i, k, u, v, w;',
+  '  for (i = 0; i < n; i++) {',
+  '    dist[i] = INF;',
+  '    prev[i] = -1;',
+  '    visited[i] = 0;',
+  '  }',
+  '  dist[s] = 0;',
+  '  for (k = 0; k < n; k++) {',
+  '    u = minChuaChot(n);',
+  '    if (u == -1) break;',
+  '    visited[u] = 1;',
+  '    for (v = 0; v < n; v++) {',
+  '      w = trongSo(u, v);',
+  '      if (w >= 0 && !visited[v] && dist[u] + w < dist[v]) {',
+  '        dist[v] = dist[u] + w;',
+  '        prev[v] = u;',
+  '      }',
+  '    }',
+  '  }',
+  '}'
+];
+
+/* Map dòng code cho từng loại bước */
+const LINE = {
+  INIT:      1,   // "int i, k, u, v, w;"
+  FOR_INIT:  2,   // for khởi tạo
+  SET_INF:   3,   // dist[i] = INF
+  SET_PREV:  4,   // prev[i] = -1
+  SET_VIS:   5,   // visited[i] = 0
+  SET_START: 7,   // dist[s] = 0
+  FOR_MAIN:  8,   // for k
+  CHOOSE:    9,   // u = minChuaChot
+  BREAK:     10,  // if u == -1
+  FINALIZE:  11,  // visited[u] = 1
+  FOR_NEI:   12,  // for v
+  GET_W:     13,  // w = trongSo
+  COMPARE:   14,  // if (dist[u]+w < dist[v])
+  SET_DIST:  15,  // dist[v] = ...
+  SET_PREVU: 16,  // prev[v] = u
+  DONE:      20   // "}" cuối
+};
+
+/* ================== KHỞI TẠO ĐỒ THỊ ================== */
+function initDefaultGraph() {
+  vertices = [
+    { id: 'A', label: 'A', x: 0.32, y: 0.45 },
+    { id: 'B', label: 'B', x: 0.72, y: 0.55 }
+  ];
+  edges = [{ u: 0, v: 1, weight: 10 }];
+  startNode = 0;
+  endNode = 1;
+}
+
+const LABELS = ['A','B','C','D','E','F','G','H','I','J'];
+
+function generateSample(n) {
+  vertices = [];
+  edges = [];
+  const cx = 0.5, cy = 0.48, r = 0.33;
+  for (let i = 0; i < n; i++) {
+    const angle = (2 * Math.PI * i) / n - Math.PI / 2;
+    vertices.push({
+      id: LABELS[i], label: LABELS[i],
+      x: cx + r * Math.cos(angle) * 0.9 + (Math.random()*0.05-0.025),
+      y: cy + r * Math.sin(angle) * 0.9 + (Math.random()*0.05-0.025)
+    });
+  }
+  const edgeSet = new Set();
+  for (let i = 1; i < n; i++) {
+    const j = Math.floor(Math.random() * i);
+    const key = Math.min(i,j)+'-'+Math.max(i,j);
+    if (!edgeSet.has(key)) {
+      edgeSet.add(key);
+      edges.push({ u: i, v: j, weight: Math.floor(Math.random() * 14) + 1 });
+    }
+  }
+  const extra = Math.min(n * 2, n*(n-1)/2) - (n-1);
+  let added = 0, attempts = 0;
+  while (added < extra && attempts < 200) {
+    attempts++;
+    const u = Math.floor(Math.random() * n);
+    const v = Math.floor(Math.random() * n);
+    if (u === v) continue;
+    const key = Math.min(u,v)+'-'+Math.max(u,v);
+    if (edgeSet.has(key)) continue;
+    edgeSet.add(key);
+    edges.push({ u, v, weight: Math.floor(Math.random() * 14) + 1 });
+    added++;
+  }
+  startNode = 0;
+  endNode = Math.min(1, n-1);
+  if (startNode === endNode) endNode = (startNode + 1) % n;
+}
+
+/* ================== DIJKSTRA – TÍNH CÁC BƯỚC ================== */
+function computeSteps() {
+  const n = vertices.length;
+  if (n === 0) { steps = []; return; }
+
+  const INF = Infinity;
+  const dist = new Array(n).fill(INF);
+  const prev = new Array(n).fill(-1);
+  const visited = new Array(n).fill(false);
+  dist[startNode] = 0;
+
+  const arr = [];
+  let edgeExamined = 0, nodeFinalized = 0;
+
+  function snap(line, note, extra) {
+    arr.push({
+      dist: dist.slice(),
+      prev: prev.slice(),
+      visited: visited.slice(),
+      line: line,
+      note: note,
+      edgeExamined: edgeExamined,
+      nodeFinalized: nodeFinalized,
+      ...(extra || {})
+    });
+  }
+
+  snap(LINE.INIT, `Khởi tạo: dist[${vertices[startNode].label}] = 0, các đỉnh khác = ∞`);
+
+  for (let iter = 0; iter < n; iter++) {
+    let u = -1, minD = INF;
+    for (let i = 0; i < n; i++) {
+      if (!visited[i] && dist[i] < minD) { minD = dist[i]; u = i; }
+    }
+    if (u === -1) break;
+
+    snap(LINE.CHOOSE, `Chọn ${vertices[u].label} = ${dist[u]} là đỉnh gần nhất chưa chốt.`, { currentU: u });
+
+    visited[u] = true;
+    nodeFinalized++;
+    snap(LINE.FINALIZE, `Chốt ${vertices[u].label} = ${dist[u]}.`, { currentU: u, justFinalized: u });
+
+    for (let e = 0; e < edges.length; e++) {
+      const ed = edges[e];
+      let v = -1;
+      if (ed.u === u) v = ed.v;
+      else if (ed.v === u) v = ed.u;
+      else continue;
+      if (visited[v]) continue;
+
+      edgeExamined++;
+      snap(LINE.GET_W, `Xét cạnh ${vertices[u].label}–${vertices[v].label} (w=${ed.weight}).`, { currentU: u, currentV: v });
+
+      const nd = dist[u] + ed.weight;
+      if (nd < dist[v]) {
+        dist[v] = nd;
+        prev[v] = u;
+        snap(LINE.SET_DIST, `Cập nhật dist[${vertices[v].label}] = ${nd}.`, { currentU: u, currentV: v, justUpdated: v });
+        snap(LINE.SET_PREVU, `previous[${vertices[v].label}] = ${vertices[u].label}.`, { currentU: u, currentV: v, justUpdated: v });
+      } else {
+        snap(LINE.COMPARE, `Không cập nhật: ${nd} ≥ dist[${vertices[v].label}] = ${dist[v] === INF ? '∞' : dist[v]}.`, { currentU: u, currentV: v });
+      }
+    }
+  }
+
+  const total = dist[endNode];
+  let pathStr = '';
+  if (total !== INF) {
+    let cur = endNode;
+    const path = [];
+    while (cur !== -1) { path.push(vertices[cur].label); cur = prev[cur]; }
+    path.reverse();
+    pathStr = path.join(' → ');
+    snap(LINE.DONE, `${pathStr}, tổng ${total}`);
+  } else {
+    snap(LINE.DONE, `Không có đường đi từ ${vertices[startNode].label} đến ${vertices[endNode].label}.`);
+  }
+
+  steps = arr;
+}
+
+/* ================== ÁP DỤNG BƯỚC ================== */
+function applyStep(idx) {
+  if (idx < 0 || idx >= steps.length) return;
+  currentStepIndex = idx;
+  const step = steps[idx];
+
+  document.getElementById('stepNote').textContent = step.note || '';
+  document.getElementById('edgeCount').textContent = step.edgeExamined;
+  document.getElementById('nodeCount').textContent = step.nodeFinalized;
+
+  const uLabel = step.currentU !== undefined ? vertices[step.currentU]?.label : '?';
+  const vLabel = step.currentV !== undefined ? vertices[step.currentV]?.label : '?';
+  let distV = '?';
+  if (step.currentV !== undefined) {
+    distV = step.dist[step.currentV] === Infinity ? '∞' : step.dist[step.currentV];
+  }
+  document.getElementById('valU').textContent = uLabel;
+  document.getElementById('valV').textContent = vLabel;
+  document.getElementById('valDist').textContent = distV;
+
+  document.querySelectorAll('.code-line').forEach((el, i) => {
+    el.classList.toggle('active', i === step.line);
+  });
+
+  render();
+}
+
+function resetSimulation() {
+  stopPlaying();
+  closeMenus();
+  computeSteps();
+  if (steps.length > 0) {
+    currentStepIndex = 0;
+    applyStep(0);
+  } else {
+    currentStepIndex = -1;
+    render();
+  }
+}
+
+/* ================== RENDER ĐỒ THỊ ================== */
+let renderW = 0, renderH = 0;
+
+function render() {
+  const w = wrapper.clientWidth, h = wrapper.clientHeight;
+  if (w <= 0 || h <= 0) return;
+  if (renderW !== w || renderH !== h) {
+    canvas.width = w * window.devicePixelRatio;
+    canvas.height = h * window.devicePixelRatio;
+    renderW = w; renderH = h;
+  }
+  const dpr = window.devicePixelRatio || 1;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = COLORS.bg;
+  ctx.fillRect(0, 0, w, h);
+
+  const step = steps[currentStepIndex] || null;
+  const isFinal = currentStepIndex === steps.length - 1 && steps.length > 0;
+
+  // Xác định tập đỉnh/cạnh trên đường đi ngắn nhất (bước cuối)
+  let pathVertices = new Set(), pathEdges = new Set();
+  if (isFinal && step) {
+    let cur = endNode;
+    pathVertices.add(cur);
+    while (cur !== -1 && step.prev[cur] !== -1) {
+      const p = step.prev[cur];
+      pathVertices.add(p);
+      pathEdges.add(Math.min(cur, p) + '-' + Math.max(cur, p));
+      cur = p;
+    }
+  }
+
+  // Vẽ cạnh
+  edges.forEach(e => {
+    const p1 = vertices[e.u], p2 = vertices[e.v];
+    if (!p1 || !p2) return;
+    const x1 = p1.x * w, y1 = p1.y * h;
+    const x2 = p2.x * w, y2 = p2.y * h;
+
+    let color = COLORS.edgeNormal;
+    let lw = 2;
+    let blur = 0;
+
+    const key = Math.min(e.u, e.v) + '-' + Math.max(e.u, e.v);
+    if (isFinal && pathEdges.has(key)) {
+      color = COLORS.edgePath; lw = 4; blur = 18;
+    } else if (step) {
+      if (step.currentU !== undefined && step.currentV !== undefined) {
+        const isCur = (e.u === step.currentU && e.v === step.currentV) ||
+                      (e.v === step.currentU && e.u === step.currentV);
+        if (isCur) { color = COLORS.edgeActive; lw = 3.5; blur = 20; }
+      }
+      // Cạnh đã xét (giữ sáng) - cả 2 đỉnh đã chốt
+      if (step.visited && step.visited[e.u] && step.visited[e.v] && !(isFinal && pathEdges.has(key))) {
+        if (color === COLORS.edgeNormal) {
+          color = COLORS.edgeChosen; lw = 2.8; blur = 10;
+        }
+      }
+    }
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = blur;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    ctx.restore();
+
+    // Nhãn độ dài: đặt vuông góc, lệch khỏi đường để không đè dist
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+    const dx = x2 - x1, dy = y2 - y1;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len, ny = dx / len;
+    const off = 14;
+    const lx = mx + nx * off, ly = my + ny * off;
+
+    ctx.save();
+    ctx.shadowBlur = 8; ctx.shadowColor = '#a855f7';
+    ctx.fillStyle = '#1e1a2e';
+    ctx.strokeStyle = '#5b3d9e';
+    ctx.lineWidth = 1.4;
+    const lw2 = 30, lh2 = 18;
+    ctx.beginPath();
+    ctx.roundRect(lx - lw2/2, ly - lh2/2, lw2, lh2, 8);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#f0e6ff';
+    ctx.font = 'bold 12px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowBlur = 0;
+    ctx.fillText(e.weight, lx, ly);
+    ctx.restore();
+  });
+
+  // Vẽ đỉnh
+  vertices.forEach((v, i) => {
+    const x = v.x * w, y = v.y * h;
+    const r = Math.max(14, Math.min(w, h) * 0.035);
+
+    let fillColor = COLORS.vertexUnvisited;
+    let strokeColor = '#5b3d9e';
+    let shadowColor = 'transparent', shadowBlur = 0;
+
+    if (isFinal && pathVertices.has(i)) {
+      fillColor = COLORS.vertexPath;
+      shadowColor = '#34d399'; shadowBlur = 26;
+      strokeColor = '#34d399';
+    } else if (step && step.visited && step.visited[i]) {
+      fillColor = COLORS.vertexVisited;
+      shadowColor = '#2563eb'; shadowBlur = 18;
+      strokeColor = '#2563eb';
+    }
+    if (step && step.justUpdated === i && !(isFinal && pathVertices.has(i))) {
+      fillColor = COLORS.vertexUpdated;
+      shadowColor = '#fbbf24'; shadowBlur = 22;
+      strokeColor = '#fbbf24';
+    }
+    if (step && step.currentU === i) {
+      fillColor = COLORS.vertexCurrent;
+      shadowColor = '#a855f7'; shadowBlur = 26;
+      strokeColor = '#a855f7';
+    }
+
+    // Vòng ngoài cho ĐẦU / ĐÍCH
+    if (i === startNode) {
+      ctx.save();
+      ctx.beginPath(); ctx.arc(x, y, r + 6, 0, 2*Math.PI);
+      ctx.strokeStyle = '#f97316'; ctx.lineWidth = 2.4;
+      ctx.shadowColor = '#f97316'; ctx.shadowBlur = 18;
+      ctx.stroke(); ctx.restore();
+    }
+    if (i === endNode) {
+      ctx.save();
+      ctx.beginPath(); ctx.arc(x, y, r + 6, 0, 2*Math.PI);
+      ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2.4;
+      ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 18;
+      ctx.stroke(); ctx.restore();
+    }
+
+    ctx.save();
+    ctx.shadowColor = shadowColor; ctx.shadowBlur = shadowBlur;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 2*Math.PI);
+    ctx.fillStyle = fillColor; ctx.fill();
+    ctx.strokeStyle = strokeColor; ctx.lineWidth = 2.2;
+    ctx.stroke(); ctx.restore();
+
+    // Nhãn đỉnh
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${Math.round(r*0.9)}px "Segoe UI", sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowBlur = 8; ctx.shadowColor = '#000';
+    ctx.fillText(v.label, x, y);
+    ctx.shadowBlur = 0;
+
+    // Nhãn ĐẦU / ĐÍCH phía trên
+    if (i === startNode) {
+      ctx.font = 'bold 11px "Segoe UI"';
+      ctx.fillStyle = '#f97316';
+      ctx.shadowColor = '#f97316'; ctx.shadowBlur = 8;
+      ctx.fillText('ĐẦU', x, y - r - 12);
+      ctx.shadowBlur = 0;
+    }
+    if (i === endNode) {
+      ctx.font = 'bold 11px "Segoe UI"';
+      ctx.fillStyle = '#ef4444';
+      ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 8;
+      ctx.fillText('ĐÍCH', x, y - r - 12);
+      ctx.shadowBlur = 0;
+    }
+
+    // Nhãn dist bên dưới
+    if (step && step.dist) {
+      const d = step.dist[i];
+      ctx.font = 'bold 13px "Fira Code", monospace';
+      ctx.fillStyle = COLORS.labelDist;
+      ctx.shadowColor = '#a855f7'; ctx.shadowBlur = 8;
+      ctx.fillText(d === Infinity ? '∞' : d, x, y + r + 14);
+      ctx.shadowBlur = 0;
+    }
+  });
+}
+
+/* ================== TIỆN ÍCH ================== */
+function stopPlaying() {
+  if (playInterval) { clearInterval(playInterval); playInterval = null; }
+  isPlaying = false;
+  document.getElementById('btnRun').textContent = '▶ Chạy';
+}
+
+let toastEl = null;
+function showToast(msg) {
+  if (toastEl) toastEl.remove();
+  toastEl = document.createElement('div');
+  toastEl.className = 'toast';
+  toastEl.textContent = msg;
+  app.appendChild(toastEl);
+  requestAnimationFrame(() => toastEl.classList.add('show'));
+  setTimeout(() => {
+    if (toastEl) { toastEl.classList.remove('show'); setTimeout(() => { if (toastEl) { toastEl.remove(); toastEl = null; } }, 300); }
+  }, 2200);
+}
+
+/* ================== TƯƠNG TÁC ĐỒ THỊ ================== */
+function getVertexAt(mx, my) {
+  const w = wrapper.clientWidth, h = wrapper.clientHeight;
+  if (w <= 0 || h <= 0) return -1;
+  const vx = mx / w, vy = my / h;
+  const rNorm = Math.max(14, Math.min(w, h) * 0.035) / Math.min(w, h) + 0.02;
+  for (let i = vertices.length - 1; i >= 0; i--) {
+    const v = vertices[i];
+    const dx = v.x - vx, dy = v.y - vy;
+    if (Math.hypot(dx, dy) < rNorm) return i;
+  }
+  return -1;
+}
+
+function getEdgeAt(mx, my) {
+  const w = wrapper.clientWidth, h = wrapper.clientHeight;
+  for (let i = 0; i < edges.length; i++) {
+    const e = edges[i];
+    const p1 = vertices[e.u], p2 = vertices[e.v];
+    if (!p1 || !p2) continue;
+    const x1 = p1.x * w, y1 = p1.y * h;
+    const x2 = p2.x * w, y2 = p2.y * h;
+    const mx2 = (x1 + x2) / 2, my2 = (y1 + y2) / 2;
+    const dx = x2 - x1, dy = y2 - y1;
+    const len = Math.hypot(dx, dy) || 1;
+    const off = 14;
+    const lx = mx2 + (-dy/len) * off, ly = my2 + (dx/len) * off;
+    if (Math.hypot(mx - lx, my - ly) < 20) return i;
+  }
+  return -1;
+}
+
+function closeMenus() {
+  // Không dùng popup nhỏ nữa; chỉ đóng overlay nếu muốn
+}
+
+/* ================== SỰ KIỆN CHUỘT / CẢM ỨNG ================== */
+let pointerState = { active: false, isTouch: false };
+
+function getPoint(e) {
+  const rect = canvas.getBoundingClientRect();
+  const t = e.touches ? e.touches[0] : e;
+  return { x: t.clientX - rect.left, y: t.clientY - rect.top, cx: t.clientX, cy: t.clientY };
+}
+
+function onDown(e) {
+  if (e.target !== canvas) return;
+  if (e.touches) {
+    if (e.touches.length > 1) return;
+    e.preventDefault();
+  }
+  const p = getPoint(e);
+  const vi = getVertexAt(p.x, p.y);
+  pointerDownVertex = vi;
+  dragMoved = false;
+
+  if (vi !== -1) {
+    draggingVertex = vi;
+    dragStartX = p.x; dragStartY = p.y;
+    if (e.shiftKey || (pointerState.isTouch && e.touches && e.touches.length === 1)) {
+      // Shift + kéo = nối cạnh
+      if (e.shiftKey) connectingFrom = vi;
+    }
+  } else if (e.shiftKey) {
+    const ei = getEdgeAt(p.x, p.y);
+    // shift + click cạnh: không xử lý ở đây
+  }
+  pointerState.active = true;
+}
+
+function onMove(e) {
+  if (!pointerState.active && draggingVertex === null) return;
+  if (e.touches) e.preventDefault();
+  const p = getPoint(e);
+
+  if (draggingVertex !== null) {
+    if (!dragMoved) {
+      if (Math.hypot(p.x - dragStartX, p.y - dragStartY) > 5) dragMoved = true;
+    }
+    if (dragMoved) {
+      const w = wrapper.clientWidth, h = wrapper.clientHeight;
+      vertices[draggingVertex].x = Math.max(0.04, Math.min(0.96, p.x / w));
+      vertices[draggingVertex].y = Math.max(0.04, Math.min(0.96, p.y / h));
+      render();
+    }
+  }
+}
+
+function onUp(e) {
+  if (e.touches && e.touches.length > 0) return;
+  if (e.changedTouches) {
+    // touch end
+  }
+  const p = getPoint(e);
+  const wasDragging = draggingVertex !== null;
+  const moved = dragMoved;
+
+  if (wasDragging && !moved) {
+    // Click vào đỉnh -> không mở menu nhỏ, chỉ hiển thị gợi ý
+    if (pointerDownVertex !== null) {
+      showToast('Dùng nút "Chỉnh sửa" để đặt ĐẦU / ĐÍCH');
+    }
+  }
+
+  if (connectingFrom !== null && wasDragging) {
+    const vi = getVertexAt(p.x, p.y);
+    if (vi !== -1 && vi !== connectingFrom) {
+      const exists = edges.some(ed => (ed.u === connectingFrom && ed.v === vi) || (ed.v === connectingFrom && ed.u === vi));
+      if (exists) {
+        showToast('Cạnh đã tồn tại');
+      } else {
+        const wStr = prompt('Nhập độ dài cạnh (số không âm):', '5');
+        if (wStr !== null) {
+          const num = parseFloat(wStr);
+          if (isNaN(num) || !isFinite(num) || num < 0) {
+            showToast('Độ dài không hợp lệ (phải ≥ 0, là số hữu hạn)');
+          } else {
+            edges.push({ u: connectingFrom, v: vi, weight: num });
+            resetSimulation();
+            refreshEditPanel();
+          }
+        }
+      }
+    }
+    connectingFrom = null;
+  }
+
+  // Nếu click vào chỗ trống (không kéo) -> thêm đỉnh
+  if (!wasDragging && pointerDownVertex === -1 && !moved && e.target === canvas && !e.shiftKey) {
+    // Bỏ qua nếu đang trong overlay hoặc đang mở chỉnh sửa
+    if (document.getElementById('editOverlay').classList.contains('open')) return;
+    if (vertices.length >= 10) {
+      showToast('Đã đủ 10 đỉnh (A–J)');
+    } else {
+      const w = wrapper.clientWidth, h = wrapper.clientHeight;
+      const nx = p.x / w, ny = p.y / h;
+      let ok = true;
+      for (const v of vertices) {
+        if (Math.hypot(v.x - nx, v.y - ny) < 0.08) { ok = false; break; }
+      }
+      if (!ok) {
+        showToast('Quá gần đỉnh khác, không thêm');
+      } else {
+        const lbl = LABELS[vertices.length] || '?';
+        vertices.push({ id: lbl, label: lbl, x: nx, y: ny });
+        resetSimulation();
+        refreshEditPanel();
+      }
+    }
+  }
+
+  draggingVertex = null;
+  pointerDownVertex = null;
+  dragMoved = false;
+  pointerState.active = false;
+}
+
+canvas.addEventListener('mousedown', onDown);
+window.addEventListener('mousemove', onMove);
+window.addEventListener('mouseup', onUp);
+canvas.addEventListener('touchstart', onDown, { passive: false });
+window.addEventListener('touchmove', onMove, { passive: false });
+window.addEventListener('touchend', onUp);
+window.addEventListener('touchcancel', onUp);
+
+// Chuột phải / shift+click cạnh để sửa nhanh — nhưng ta ưu tiên panel
+canvas.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  const p = getPoint(e);
+  const vi = getVertexAt(p.x, p.y);
+  if (vi !== -1) {
+    showToast('Dùng nút "Chỉnh sửa" để quản lý đỉnh');
+  } else {
+    const ei = getEdgeAt(p.x, p.y);
+    if (ei !== -1) openEdgeEditPrompt(ei);
+  }
+});
+
+function openEdgeEditPrompt(ei) {
+  const edge = edges[ei];
+  const wStr = prompt(`Độ dài cạnh ${vertices[edge.u].label}–${vertices[edge.v].label} (hiện tại ${edge.weight}):`, edge.weight);
+  if (wStr === null) return;
+  const num = parseFloat(wStr);
+  if (isNaN(num) || !isFinite(num) || num < 0) {
+    showToast('Độ dài không hợp lệ (phải ≥ 0, là số hữu hạn)');
+    return;
+  }
+  edge.weight = num;
+  resetSimulation();
+  refreshEditPanel();
+}
+
+/* ================== KHUNG CODE ================== */
+function renderCode() {
+  const container = document.getElementById('codeLines');
+  container.innerHTML = '';
+  CODE_LINES.forEach((line, i) => {
+    const div = document.createElement('div');
+    div.className = 'code-line';
+    const highlighted = highlightC(line);
+    div.innerHTML = `<span class="line-number">${i+1}</span><span class="line-code">${highlighted}</span>`;
+    container.appendChild(div);
+  });
+}
+
+function highlightC(line) {
+  // Escape HTML trước
+  let s = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // Comment
+  s = s.replace(/(\/\/.*)/g, '<span class="tok-comment">$1</span>');
+  // Keywords
+  const kws = ['void','int','for','if','break','return'];
+  kws.forEach(k => {
+    s = s.replace(new RegExp('\\b' + k + '\\b', 'g'), '<span class="tok-keyword">' + k + '</span>');
+  });
+  // Types (int)
+  s = s.replace(/\bint\b/g, '<span class="tok-type">int</span>');
+  // Numbers
+  s = s.replace(/\b(\d+)\b/g, '<span class="tok-number">$1</span>');
+  // Function calls
+  s = s.replace(/\b(minChuaChot|trongSo)\b/g, '<span class="tok-func">$1</span>');
+  return s;
+}
+
+/* ================== PANEL CHỈNH SỬA ================== */
+const editOverlay = document.getElementById('editOverlay');
+
+function openEditPanel() {
+  refreshEditPanel();
+  editOverlay.classList.add('open');
+}
+
+function closeEditPanel() {
+  editOverlay.classList.remove('open');
+}
+
+function refreshEditPanel() {
+  const selStart = document.getElementById('selStart');
+  const selEnd = document.getElementById('selEnd');
+  selStart.innerHTML = '';
+  selEnd.innerHTML = '';
+  vertices.forEach((v, i) => {
+    const o1 = document.createElement('option');
+    o1.value = i; o1.textContent = v.label + (i === startNode ? ' (ĐẦU)' : '');
+    if (i === startNode) o1.selected = true;
+    selStart.appendChild(o1);
+
+    const o2 = document.createElement('option');
+    o2.value = i; o2.textContent = v.label + (i === endNode ? ' (ĐÍCH)' : '');
+    if (i === endNode) o2.selected = true;
+    selEnd.appendChild(o2);
+  });
+
+  const vList = document.getElementById('vertexList');
+  vList.innerHTML = '';
+  vertices.forEach((v, i) => {
+    const row = document.createElement('div');
+    row.className = 'edit-row';
+    row.innerHTML = `
+      <span class="label">Đỉnh ${v.label}</span>
+      <button class="btn-sm" data-setstart="${i}">Đặt ĐẦU</button>
+      <button class="btn-sm" data-setend="${i}">Đặt ĐÍCH</button>
+      <button class="btn-sm btn-del" data-delvertex="${i}">Xóa</button>
+    `;
+    vList.appendChild(row);
+  });
+
+  vList.querySelectorAll('[data-setstart]').forEach(b => {
+    b.onclick = () => {
+      const i = +b.dataset.setstart;
+      if (i === endNode) { showToast('Đỉnh này đang là ĐÍCH'); return; }
+      startNode = i; resetSimulation(); refreshEditPanel();
+    };
+  });
+  vList.querySelectorAll('[data-setend]').forEach(b => {
+    b.onclick = () => {
+      const i = +b.dataset.setend;
+      if (i === startNode) { showToast('Đỉnh này đang là ĐẦU'); return; }
+      endNode = i; resetSimulation(); refreshEditPanel();
+    };
+  });
+  vList.querySelectorAll('[data-delvertex]').forEach(b => {
+    b.onclick = () => {
+      const i = +b.dataset.delvertex;
+      if (vertices.length <= 2) { showToast('Cần ít nhất 2 đỉnh'); return; }
+      const removed = vertices[i];
+      vertices.splice(i, 1);
+      edges = edges.filter(ed => ed.u !== i && ed.v !== i).map(ed => ({
+        u: ed.u > i ? ed.u - 1 : ed.u,
+        v: ed.v > i ? ed.v - 1 : ed.v,
+        weight: ed.weight
+      }));
+      if (startNode === i) startNode = 0;
+      else if (startNode > i) startNode--;
+      if (endNode === i) endNode = Math.min(1, vertices.length - 1);
+      else if (endNode > i) endNode--;
+      if (startNode === endNode) endNode = (startNode + 1) % vertices.length;
+      resetSimulation();
+      refreshEditPanel();
+      showToast(`Đã xóa đỉnh ${removed.label}`);
+    };
+  });
+
+  const eList = document.getElementById('edgeList');
+  eList.innerHTML = '';
+  if (edges.length === 0) {
+    eList.innerHTML = '<div class="hint">Chưa có cạnh nào.</div>';
+  }
+  edges.forEach((e, i) => {
+    const row = document.createElement('div');
+    row.className = 'edit-row';
+    row.innerHTML = `
+      <span class="label">${vertices[e.u].label}–${vertices[e.v].label}</span>
+      <button class="btn-sm" data-minus="${i}">−</button>
+      <input type="number" min="0" step="0.1" value="${e.weight}" data-input="${i}" style="width:90px;height:36px;">
+      <button class="btn-sm" data-plus="${i}">+</button>
+      <button class="btn-sm btn-del" data-deledge="${i}">Xóa</button>
+    `;
+    eList.appendChild(row);
+  });
+
+  eList.querySelectorAll('[data-minus]').forEach(b => {
+    b.onclick = () => {
+      const i = +b.dataset.minus;
+      edges[i].weight = Math.max(0, edges[i].weight - 1);
+      resetSimulation(); refreshEditPanel();
+    };
+  });
+  eList.querySelectorAll('[data-plus]').forEach(b => {
+    b.onclick = () => {
+      const i = +b.dataset.plus;
+      edges[i].weight = edges[i].weight + 1;
+      resetSimulation(); refreshEditPanel();
+    };
+  });
+  eList.querySelectorAll('[data-input]').forEach(inp => {
+    inp.onchange = () => {
+      const i = +inp.dataset.input;
+      const num = parseFloat(inp.value);
+      if (isNaN(num) || !isFinite(num) || num < 0) {
+        showToast('Độ dài phải là số hữu hạn ≥ 0');
+        inp.value = edges[i].weight;
+        return;
+      }
+      edges[i].weight = num;
+      resetSimulation(); refreshEditPanel();
+    };
+  });
+  eList.querySelectorAll('[data-deledge]').forEach(b => {
+    b.onclick = () => {
+      const i = +b.dataset.deledge;
+      edges.splice(i, 1);
+      resetSimulation(); refreshEditPanel();
+    };
+  });
+}
+
+document.getElementById('selStart').addEventListener('change', (e) => {
+  const i = +e.target.value;
+  if (i === endNode) { showToast('Đỉnh này đang là ĐÍCH'); refreshEditPanel(); return; }
+  startNode = i; resetSimulation(); refreshEditPanel();
+});
+document.getElementById('selEnd').addEventListener('change', (e) => {
+  const i = +e.target.value;
+  if (i === startNode) { showToast('Đỉnh này đang là ĐẦU'); refreshEditPanel(); return; }
+  endNode = i; resetSimulation(); refreshEditPanel();
+});
+
+document.getElementById('btnEdit').addEventListener('click', openEditPanel);
+document.getElementById('editCloseBtn').addEventListener('click', closeEditPanel);
+document.getElementById('editDoneBtn').addEventListener('click', closeEditPanel);
+editOverlay.addEventListener('mousedown', (e) => {
+  if (e.target === editOverlay) closeEditPanel();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && editOverlay.classList.contains('open')) closeEditPanel();
+});
+
+/* ================== ĐIỀU KHIỂN ================== */
+document.getElementById('btnRun').addEventListener('click', () => {
+  if (isPlaying) { stopPlaying(); return; }
+  if (steps.length === 0) return;
+  if (currentStepIndex >= steps.length - 1) {
+    currentStepIndex = 0;
+    applyStep(0);
+  }
+  isPlaying = true;
+  document.getElementById('btnRun').textContent = '⏸ Tạm dừng';
+  playInterval = setInterval(() => {
+    if (currentStepIndex < steps.length - 1) {
+      currentStepIndex++;
+      applyStep(currentStepIndex);
+    } else {
+      stopPlaying();
+    }
+  }, 800 / speed);
+});
+
+document.getElementById('btnStep').addEventListener('click', () => {
+  stopPlaying();
+  if (currentStepIndex < steps.length - 1) {
+    currentStepIndex++;
+    applyStep(currentStepIndex);
+  }
+});
+
+document.getElementById('btnPrev').addEventListener('click', () => {
+  stopPlaying();
+  if (currentStepIndex > 0) {
+    currentStepIndex--;
+    applyStep(currentStepIndex);
+  }
+});
+
+document.getElementById('btnReset').addEventListener('click', () => {
+  stopPlaying();
+  if (steps.length > 0) {
+    currentStepIndex = 0;
+    applyStep(0);
+  }
+});
+
+document.getElementById('sampleSelect').addEventListener('change', (e) => {
+  const n = parseInt(e.target.value);
+  generateSample(n);
+  resetSimulation();
+  if (editOverlay.classList.contains('open')) refreshEditPanel();
+});
+
+document.getElementById('speedSlider').addEventListener('input', (e) => {
+  speed = parseFloat(e.target.value);
+  if (isPlaying) {
+    stopPlaying();
+    document.getElementById('btnRun').click();
+  }
+});
+
+/* ================== KHỞI TẠO ================== */
+function init() {
+  initDefaultGraph();
+  renderCode();
+  resetSimulation();
+
+  const resizeObs = new ResizeObserver(() => render());
+  resizeObs.observe(wrapper);
+
+  window.addEventListener('resize', () => { renderW = 0; render(); });
+}
+
+init();
+</script>
+</body>
+</html>
